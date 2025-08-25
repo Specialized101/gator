@@ -57,3 +57,20 @@ func handlerReset(s *state, cmd command) error {
 	fmt.Println("all records in the users table has been deleted")
 	return nil
 }
+
+func handlerUsers(s *state, cmd command) error {
+	users, err := s.db.GetUsers(context.Background())
+	if err != nil {
+		log.Fatal("failed to fetch all users")
+	}
+	for _, u := range users {
+		prefix := "* "
+		txt := prefix + u.Name
+
+		if u.Name == s.cfg.CurrentUserName {
+			txt += " (current)"
+		}
+		fmt.Println(txt)
+	}
+	return nil
+}
