@@ -49,3 +49,11 @@ func handlerRegister(s *state, cmd command) error {
 	}
 	return nil
 }
+
+func handlerReset(s *state, cmd command) error {
+	if err := s.db.DeleteUsers(context.Background()); err != nil {
+		log.Fatal("failed to reset the users table")
+	}
+	fmt.Println("all records in the users table has been deleted")
+	return nil
+}

@@ -30,16 +30,18 @@ func main() {
 	c.cmds = make(map[string]func(*state, command) error)
 	c.register("login", handlerLogin)
 	c.register("register", handlerRegister)
+	c.register("reset", handlerReset)
 
 	if len(os.Args) < 2 {
-		log.Fatal("not enough arguments were provided\n")
+		log.Fatal("not enough arguments were provided\nusage: go run . <command> [arguments]")
 	}
-	if len(os.Args) < 3 {
-		log.Fatal("the username is required to log in/register\n")
+	var args []string
+	if len(os.Args) > 2 {
+		args = os.Args[2:]
 	}
 	c.run(&s, command{
 		name: os.Args[1],
-		args: os.Args[2:],
+		args: args,
 	})
 
 }
