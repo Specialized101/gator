@@ -83,3 +83,27 @@ func handlerAgg(s *state, cmd command) error {
 	fmt.Println(rssFeed)
 	return nil
 }
+
+func handlerAddfeed(s *state, cmd command) error {
+	if len(cmd.args) < 2 {
+		log.Fatal("missing arguments\nusage: go run . addFeed <name> <url>")
+	}
+	currentUser, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.db.CreateFeed(context.Background(), database.CreateFeedParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Name:      cmd.args[0],
+		Url:       cmd.args[1],
+		UserID:    currentUser.ID,
+	})
+	if err != nil {
+		log.Fatal("failed to create rss feed")
+	}
+	fmt.Printf("RSS Feed '%s' has been added successfully\n", cmd.args[0])
+	return nil
+}
