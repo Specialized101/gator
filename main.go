@@ -34,6 +34,7 @@ func main() {
 	c.register("users", handlerUsers)
 	c.register("agg", handlerAgg)
 	c.register("addfeed", handlerAddfeed)
+	c.register("feeds", handlerFeeds)
 
 	if len(os.Args) < 2 {
 		log.Fatal("not enough arguments were provided\nusage: go run . <command> [arguments]")

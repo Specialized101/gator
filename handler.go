@@ -107,3 +107,20 @@ func handlerAddfeed(s *state, cmd command) error {
 	fmt.Printf("RSS Feed '%s' has been added successfully\n", cmd.args[0])
 	return nil
 }
+
+func handlerFeeds(s *state, cmd command) error {
+	feeds, err := s.db.GetFeeds(context.Background())
+	if err != nil {
+		log.Fatal("failed to fetch all rss feeds")
+	}
+	for i, feed := range feeds {
+		u, err := s.db.GetUserById(context.Background(), feed.UserID)
+		if err != nil {
+			log.Fatal("failed to fetch user by id")
+		}
+		fmt.Printf("%d. %s:\n", i+1, feed.Name)
+		fmt.Printf("  - %s\n", feed.Url)
+		fmt.Printf("  - created by %s\n", u.Name)
+	}
+	return nil
+}
