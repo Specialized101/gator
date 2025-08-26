@@ -32,6 +32,7 @@ func main() {
 	c.register("register", handlerRegister)
 	c.register("reset", handlerReset)
 	c.register("users", handlerUsers)
+	c.register("agg", handlerAgg)
 
 	if len(os.Args) < 2 {
 		log.Fatal("not enough arguments were provided\nusage: go run . <command> [arguments]")
