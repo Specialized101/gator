@@ -105,6 +105,14 @@ func handlerAddfeed(s *state, cmd command) error {
 		log.Fatal("failed to create rss feed")
 	}
 	fmt.Printf("RSS Feed '%s' has been added successfully\n", cmd.args[0])
+
+	err = handlerFollow(s, command{
+		name: "follow",
+		args: []string{cmd.args[1]},
+	})
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -121,6 +129,45 @@ func handlerFeeds(s *state, cmd command) error {
 		fmt.Printf("%d. %s:\n", i+1, feed.Name)
 		fmt.Printf("  - %s\n", feed.Url)
 		fmt.Printf("  - created by %s\n", u.Name)
+	}
+	return nil
+}
+
+func handlerFollow(s *state, cmd command) error {
+	if len(cmd.args) == 0 {
+		log.Fatal(`missing argument. usage: go run . follow "<url>"`)
+	}
+	feed, err := s.db.GetFeedByUrl(context.Background(), cmd.args[0])
+	if err != nil {
+		log.Fatal("failed to get feed from db")
+	}
+	currentUser, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
+	if err != nil {
+		log.Fatal("failed to get current user from db")
+	}
+	feedFollow, err := s.db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		UserID:    currentUser.ID,
+		FeedID:    feed.ID,
+	})
+	if err != nil {
+		log.Fatal("failed to create new feed follow")
+	}
+	fmt.Printf("User %s just followed '%s'\n", feedFollow.UserName, feedFollow.FeedName)
+	return nil
+}
+
+func handlerFollowing(s *state, cmd command) error {
+	feedFollows, err := s.db.GetFeedFollowsForUser(context.Background(), s.cfg.CurrentUserName)
+	if err != nil {
+		log.Fatal("failed to get rss feeds followed by current user")
+	}
+	fmt.Println("Here are the rss feeds you are currently following:")
+	for i, ff := range feedFollows {
+		i++
+		fmt.Printf("	%d. %s\n", i, ff.FeedName)
 	}
 	return nil
 }
