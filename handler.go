@@ -84,32 +84,31 @@ func handlerAgg(s *state, cmd command) error {
 	return nil
 }
 
-func handlerAddfeed(s *state, cmd command) error {
+func handlerAddfeed(s *state, cmd command, user database.User) error {
 	if len(cmd.args) < 2 {
 		log.Fatal("missing arguments\nusage: go run . addFeed <name> <url>")
 	}
-	currentUser, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
-	if err != nil {
-		return err
-	}
 
-	_, err = s.db.CreateFeed(context.Background(), database.CreateFeedParams{
+	_, err := s.db.CreateFeed(context.Background(), database.CreateFeedParams{
 		ID:        uuid.New(),
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 		Name:      cmd.args[0],
 		Url:       cmd.args[1],
-		UserID:    currentUser.ID,
+		UserID:    user.ID,
 	})
 	if err != nil {
 		log.Fatal("failed to create rss feed")
 	}
 	fmt.Printf("RSS Feed '%s' has been added successfully\n", cmd.args[0])
 
-	err = handlerFollow(s, command{
-		name: "follow",
-		args: []string{cmd.args[1]},
-	})
+	err = handlerFollow(
+		s, command{
+			name: "follow",
+			args: []string{cmd.args[1]},
+		},
+		user,
+	)
 	if err != nil {
 		return err
 	}
@@ -133,7 +132,7 @@ func handlerFeeds(s *state, cmd command) error {
 	return nil
 }
 
-func handlerFollow(s *state, cmd command) error {
+func handlerFollow(s *state, cmd command, user database.User) error {
 	if len(cmd.args) == 0 {
 		log.Fatal(`missing argument. usage: go run . follow "<url>"`)
 	}
@@ -141,15 +140,11 @@ func handlerFollow(s *state, cmd command) error {
 	if err != nil {
 		log.Fatal("failed to get feed from db")
 	}
-	currentUser, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
-	if err != nil {
-		log.Fatal("failed to get current user from db")
-	}
 	feedFollow, err := s.db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
 		ID:        uuid.New(),
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
-		UserID:    currentUser.ID,
+		UserID:    user.ID,
 		FeedID:    feed.ID,
 	})
 	if err != nil {
@@ -159,8 +154,8 @@ func handlerFollow(s *state, cmd command) error {
 	return nil
 }
 
-func handlerFollowing(s *state, cmd command) error {
-	feedFollows, err := s.db.GetFeedFollowsForUser(context.Background(), s.cfg.CurrentUserName)
+func handlerFollowing(s *state, cmd command, user database.User) error {
+	feedFollows, err := s.db.GetFeedFollowsForUser(context.Background(), user.ID)
 	if err != nil {
 		log.Fatal("failed to get rss feeds followed by current user")
 	}
