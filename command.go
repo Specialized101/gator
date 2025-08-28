@@ -21,7 +21,10 @@ func (c *commands) run(s *state, cmd command) error {
 	if !exists {
 		return fmt.Errorf("command '%s' does not exist", cmd.name)
 	}
-	handler(s, cmd)
+	err := handler(s, cmd)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -16,11 +16,11 @@ func handlerLogin(s *state, cmd command) error {
 	}
 	user, err := s.db.GetUser(context.Background(), cmd.args[0])
 	if err != nil {
-		log.Fatalf("failed to log in as %s: user does not exist", cmd.args[0])
+		return fmt.Errorf("failed to get current user: %w", err)
 	}
 	err = s.cfg.SetUser(user.Name)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to set current user: %w", err)
 	}
 	fmt.Printf("The user %s has been set\n", cmd.args[0])
 	return nil
@@ -37,7 +37,7 @@ func handlerRegister(s *state, cmd command) error {
 		Name:      cmd.args[0],
 	})
 	if err != nil {
-		log.Fatalf("error registering new user: %v", err)
+		return fmt.Errorf("failed to create user: %w", err)
 	}
 	fmt.Printf("user %s was created:\n", cmd.args[0])
 	fmt.Printf("  - id: %v\n", user.ID)
@@ -45,14 +45,14 @@ func handlerRegister(s *state, cmd command) error {
 	fmt.Printf("  - updated_at: %v\n", user.UpdatedAt)
 	err = s.cfg.SetUser(cmd.args[0])
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to set current user: %w", err)
 	}
 	return nil
 }
 
 func handlerReset(s *state, cmd command) error {
 	if err := s.db.DeleteUsers(context.Background()); err != nil {
-		log.Fatal("failed to reset the users table")
+		return fmt.Errorf("failed to delete all users: %w", err)
 	}
 	fmt.Println("all records in the users table has been deleted")
 	return nil
@@ -61,7 +61,7 @@ func handlerReset(s *state, cmd command) error {
 func handlerUsers(s *state, cmd command) error {
 	users, err := s.db.GetUsers(context.Background())
 	if err != nil {
-		log.Fatal("failed to fetch all users")
+		return fmt.Errorf("failed to fetch all users from db: %w", err)
 	}
 	for _, u := range users {
 		prefix := "* "
@@ -78,7 +78,7 @@ func handlerUsers(s *state, cmd command) error {
 func handlerAgg(s *state, cmd command) error {
 	rssFeed, err := fetchFeed(context.Background(), "https://www.wagslane.dev/index.xml")
 	if err != nil {
-		log.Fatal("failed to fetch https://www.wagslane.dev/index.xml")
+		return fmt.Errorf("failed to fetch %s: %w", "https://www.wagslane.dev/index.xml", err)
 	}
 	fmt.Println(rssFeed)
 	return nil
@@ -86,7 +86,7 @@ func handlerAgg(s *state, cmd command) error {
 
 func handlerAddfeed(s *state, cmd command, user database.User) error {
 	if len(cmd.args) < 2 {
-		log.Fatal("missing arguments\nusage: go run . addFeed <name> <url>")
+		return fmt.Errorf("missing arguments\nusage: go run . addFeed <name> <url>")
 	}
 
 	_, err := s.db.CreateFeed(context.Background(), database.CreateFeedParams{
@@ -98,7 +98,7 @@ func handlerAddfeed(s *state, cmd command, user database.User) error {
 		UserID:    user.ID,
 	})
 	if err != nil {
-		log.Fatal("failed to create rss feed")
+		return fmt.Errorf("failed to create feed: %w", err)
 	}
 	fmt.Printf("RSS Feed '%s' has been added successfully\n", cmd.args[0])
 
@@ -118,12 +118,12 @@ func handlerAddfeed(s *state, cmd command, user database.User) error {
 func handlerFeeds(s *state, cmd command) error {
 	feeds, err := s.db.GetFeeds(context.Background())
 	if err != nil {
-		log.Fatal("failed to fetch all rss feeds")
+		return fmt.Errorf("failed to fetch all feeds from db: %w", err)
 	}
 	for i, feed := range feeds {
 		u, err := s.db.GetUserById(context.Background(), feed.UserID)
 		if err != nil {
-			log.Fatal("failed to fetch user by id")
+			return fmt.Errorf("failed to fetch user by id from db: %w", err)
 		}
 		fmt.Printf("%d. %s:\n", i+1, feed.Name)
 		fmt.Printf("  - %s\n", feed.Url)
@@ -134,11 +134,12 @@ func handlerFeeds(s *state, cmd command) error {
 
 func handlerFollow(s *state, cmd command, user database.User) error {
 	if len(cmd.args) == 0 {
-		log.Fatal(`missing argument. usage: go run . follow "<url>"`)
+		return fmt.Errorf(`missing argument. usage: go run . follow "<url>`)
 	}
 	feed, err := s.db.GetFeedByUrl(context.Background(), cmd.args[0])
 	if err != nil {
 		log.Fatal("failed to get feed from db")
+		return fmt.Errorf("failed to get feed by url from db: %w", err)
 	}
 	feedFollow, err := s.db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
 		ID:        uuid.New(),
@@ -148,7 +149,7 @@ func handlerFollow(s *state, cmd command, user database.User) error {
 		FeedID:    feed.ID,
 	})
 	if err != nil {
-		log.Fatal("failed to create new feed follow")
+		return fmt.Errorf("failed to create feed follow: %w", err)
 	}
 	fmt.Printf("User %s just followed '%s'\n", feedFollow.UserName, feedFollow.FeedName)
 	return nil
@@ -157,7 +158,7 @@ func handlerFollow(s *state, cmd command, user database.User) error {
 func handlerFollowing(s *state, cmd command, user database.User) error {
 	feedFollows, err := s.db.GetFeedFollowsForUser(context.Background(), user.ID)
 	if err != nil {
-		log.Fatal("failed to get rss feeds followed by current user")
+		return fmt.Errorf("failed to get feed follows of current user from db: %w", err)
 	}
 	fmt.Println("Here are the rss feeds you are currently following:")
 	for i, ff := range feedFollows {
