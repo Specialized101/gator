@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"time"
@@ -76,12 +77,22 @@ func handlerUsers(s *state, cmd command) error {
 }
 
 func handlerAgg(s *state, cmd command) error {
-	rssFeed, err := fetchFeed(context.Background(), "https://www.wagslane.dev/index.xml")
-	if err != nil {
-		return fmt.Errorf("failed to fetch %s: %w", "https://www.wagslane.dev/index.xml", err)
+	if len(cmd.args) == 0 {
+		return fmt.Errorf("missing arguments\nusage: go run . agg <duration>")
 	}
-	fmt.Println(rssFeed)
-	return nil
+	duration, err := time.ParseDuration(cmd.args[0])
+	if err != nil {
+		return fmt.Errorf("failed to parse duration: %w", err)
+	}
+	ticker := time.NewTicker(duration)
+	fmt.Printf("Collecting feeds every %v\n", duration)
+	for ; ; <-ticker.C {
+		err = scrapeFeeds(s)
+		if err != nil {
+			return err
+		}
+	}
+
 }
 
 func handlerAddfeed(s *state, cmd command, user database.User) error {
@@ -180,5 +191,33 @@ func handlerUnfollow(s *state, cmd command, user database.User) error {
 		return fmt.Errorf("failed to delete feed follow: %w", err)
 	}
 	fmt.Printf("You have unfollowed \"%s\"\n", cmd.args[0])
+	return nil
+}
+
+func scrapeFeeds(s *state) error {
+	nextFeed, err := s.db.GetNextFeedToFetch(context.Background())
+	if err != nil {
+		return fmt.Errorf("falied to get next feed to fetch: %w", err)
+	}
+	err = s.db.MarkFeedFetched(context.Background(), database.MarkFeedFetchedParams{
+		LastFetchedAt: sql.NullTime{
+			Time:  time.Now(),
+			Valid: true,
+		},
+		UpdatedAt: time.Now(),
+		ID:        nextFeed.ID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to mark feed as fetched: %w", err)
+	}
+	rssFeed, err := fetchFeed(context.Background(), nextFeed.Url)
+	if err != nil {
+		return fmt.Errorf("failed to fetch rss feed: %w", err)
+	}
+	fmt.Printf("%s: \n", rssFeed.Channel.Title)
+	for i, item := range rssFeed.Channel.Items {
+		i++
+		fmt.Printf("	%d. %s\n", i, item.Title)
+	}
 	return nil
 }
