@@ -5,10 +5,12 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/Specialized101/gator/internal/database"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 func handlerLogin(s *state, cmd command) error {
@@ -194,6 +196,26 @@ func handlerUnfollow(s *state, cmd command, user database.User) error {
 	return nil
 }
 
+func handlerBrowse(s *state, cmd command, user database.User) error {
+	limit := 2
+	if len(cmd.args) > 0 {
+		if n, err := strconv.Atoi(cmd.args[0]); err == nil {
+			limit = n
+		}
+	}
+	posts, err := s.db.GetPostsForUser(context.Background(), database.GetPostsForUserParams{
+		ID:    user.ID,
+		Limit: int32(limit),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get posts for user: %w", err)
+	}
+	for _, p := range posts {
+		fmt.Printf("%s ==> %s\n", p.FeedName, p.Title)
+	}
+	return nil
+}
+
 func scrapeFeeds(s *state) error {
 	nextFeed, err := s.db.GetNextFeedToFetch(context.Background())
 	if err != nil {
@@ -214,10 +236,28 @@ func scrapeFeeds(s *state) error {
 	if err != nil {
 		return fmt.Errorf("failed to fetch rss feed: %w", err)
 	}
-	fmt.Printf("%s: \n", rssFeed.Channel.Title)
-	for i, item := range rssFeed.Channel.Items {
-		i++
-		fmt.Printf("	%d. %s\n", i, item.Title)
+	for _, item := range rssFeed.Channel.Items {
+		pubDate, err := time.Parse(time.RFC1123Z, item.PubDate)
+		if err != nil {
+			return fmt.Errorf("failed to convert publication date: %w", err)
+		}
+		_, err = s.db.CreatePost(context.Background(), database.CreatePostParams{
+			ID:          uuid.New(),
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+			Title:       item.Title,
+			Url:         item.Link,
+			Description: item.Description,
+			PublishedAt: pubDate,
+			FeedID:      nextFeed.ID,
+		})
+		if err != nil {
+			if pgErr, ok := err.(*pq.Error); ok {
+				if pgErr.Code != "23505" { // ignore failed insert due to unique constraint
+					return fmt.Errorf("failed to create post: %w", err)
+				}
+			}
+		}
 	}
 	return nil
 }

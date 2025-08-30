@@ -38,6 +38,7 @@ func main() {
 	c.register("follow", middlewareLoogedIn(handlerFollow))
 	c.register("following", middlewareLoogedIn(handlerFollowing))
 	c.register("unfollow", middlewareLoogedIn(handlerUnfollow))
+	c.register("browse", middlewareLoogedIn(handlerBrowse))
 
 	if len(os.Args) < 2 {
 		log.Fatal("not enough arguments were provided\nusage: go run . <command> [arguments]")
